@@ -350,11 +350,11 @@ static void _transfer_start(usbd_gadget_ums_t *ums, bulk_ctxt_t *bulk_ctxt, u32 
 
 		if (bulk_ctxt->bulk_out_status == USB_ERROR_XFER_ERROR)
 		{
-			ums->set_text(ums->label, "Error: EP OUT XFer");
+			ums->set_text(ums->label, "ERR: EP OUT XFer");
 			_flush_endpoint(bulk_ctxt->bulk_out);
 		}
 		else if (bulk_ctxt->bulk_out_status == USB2_ERROR_XFER_NOT_ALIGNED)
-			ums->set_text(ums->label, "Error: EP OUT Buf algn");
+			ums->set_text(ums->label, "ERR: EP OUT Buf algn");
 
 		if (sync_timeout)
 			bulk_ctxt->bulk_out_buf_state = BUF_STATE_FULL;
@@ -369,7 +369,7 @@ static void _transfer_out_big_read(usbd_gadget_ums_t *ums, bulk_ctxt_t *bulk_ctx
 
 		if (bulk_ctxt->bulk_out_status == USB_ERROR_XFER_ERROR)
 		{
-			ums->set_text(ums->label, "Error: EP OUT XFer");
+			ums->set_text(ums->label, "ERR: EP OUT XFer");
 			_flush_endpoint(bulk_ctxt->bulk_out);
 		}
 
@@ -385,7 +385,7 @@ static void _transfer_finish(usbd_gadget_ums_t *ums, bulk_ctxt_t *bulk_ctxt, u32
 
 		if (bulk_ctxt->bulk_in_status == USB_ERROR_XFER_ERROR)
 		{
-			ums->set_text(ums->label, "Error: EP IN XFer");
+			ums->set_text(ums->label, "ERR: EP IN XFer");
 			_flush_endpoint(bulk_ctxt->bulk_in);
 		}
 
@@ -398,7 +398,7 @@ static void _transfer_finish(usbd_gadget_ums_t *ums, bulk_ctxt_t *bulk_ctxt, u32
 
 		if (bulk_ctxt->bulk_out_status == USB_ERROR_XFER_ERROR)
 		{
-			ums->set_text(ums->label, "Error: EP OUT XFer");
+			ums->set_text(ums->label, "ERR: EP OUT XFer");
 			_flush_endpoint(bulk_ctxt->bulk_out);
 		}
 
@@ -1839,7 +1839,7 @@ static void _handle_exception(usbd_gadget_ums_t *ums, bulk_ctxt_t *bulk_ctxt)
 
 static inline void _system_maintainance(usbd_gadget_ums_t *ums)
 {
-	static u32 timer_dram = 0;
+	// static u32 timer_dram = 0;
 	static u32 timer_status_bar = 0;
 
 	u32 time = get_tmr_ms();
@@ -1847,13 +1847,13 @@ static inline void _system_maintainance(usbd_gadget_ums_t *ums)
 	if (timer_status_bar < time)
 	{
 		ums->system_maintenance(true);
-		timer_status_bar = get_tmr_ms() + 30000;
+		timer_status_bar = get_tmr_ms() + 500;
 	}
-	else if (timer_dram < time)
-	{
-		minerva_periodic_training();
-		timer_dram = get_tmr_ms() + EMC_PERIODIC_TRAIN_MS;
-	}
+	// else if (timer_dram < time)
+	// {
+	// 	minerva_periodic_training();
+	// 	timer_dram = get_tmr_ms() + EMC_PERIODIC_TRAIN_MS;
+	// }
 }
 
 static bool _get_prevent_media_removal(usbd_gadget_ums_t *ums){
@@ -1966,7 +1966,7 @@ int usb_device_gadget_ums(usb_ctxt_t *usbs)
 
 	do{
 		// Do DRAM training and update system tasks.
-		// _system_maintainance(&ums);
+		_system_maintainance(&ums);
 
 		// Check for force unmount button combo.
 		if (btn_read_vol() == (BTN_VOL_UP | BTN_VOL_DOWN))
@@ -2019,7 +2019,6 @@ exit:
 	if (sd_used)
 		sd_end();
 
-init_fail:
 	usb_ops.usbd_end(true, false);
 
 	return res;

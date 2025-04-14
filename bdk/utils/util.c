@@ -305,3 +305,15 @@ void power_set_state_ex(void *param)
 	power_state_t *state = (power_state_t *)param;
 	power_set_state(*state);
 }
+
+bool is_t210(){
+	return hw_get_chip_id() == GP_HIDREV_MAJOR_T210;
+}
+
+void rcm_if_t210_or_off(){
+	if(is_t210()){
+		power_set_state(REBOOT_RCM);
+	}else{
+		power_set_state(POWER_OFF);
+	}
+}

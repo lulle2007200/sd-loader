@@ -406,6 +406,7 @@ typedef struct _xusbd_event_queues_t
 // Set event queues context to a 0x10 aligned address.
 xusbd_event_queues_t *xusb_evtq = (xusbd_event_queues_t *)XUSB_RING_ADDR;
 
+
 xusbd_controller_t *usbd_xotg;
 xusbd_controller_t usbd_xotg_controller_ctxt;
 

@@ -591,7 +591,7 @@ static const reg_cfg_t _di_winD_log[] = {
 #define WIN_DDA ((0x1000 * WIN_WIDTH) / (WIN_ZOOM * WIN_WIDTH))
 #define WIN_POS_Y ((1280 / 2) - ((WIN_ZOOM * WIN_HEIGHT) / 2))
 #define WIN_POS_X ((720 / 2) - ((WIN_ZOOM * WIN_WIDTH) / 2))
-#define PIXELS_PER_BYTE (8  / PALETTE_BITS)
+#define PIXELS_PER_BYTE 1
 
 static const reg_cfg_t _di_winA_pitch_small[] = {
 	{DC_CMD_DISPLAY_WINDOW_HEADER, WINDOW_A_SELECT},
@@ -631,9 +631,20 @@ static const reg_cfg_t _di_winA_pitch_small_palette[] = {
 	{DC_WIN_BUFFER_CONTROL, BUFFER_CONTROL_HOST},
 	{DC_WINBUF_SURFACE_KIND, PITCH},
 	
-	{DC_WINC_COLOR_PALETTE, 0},
-	{DC_WINC_COLOR_PALETTE + 1, 0xffffff},
-	{DC_WINC_COLOR_PALETTE + 2, 0x737373},
+	// 0x00BBGGRR
+	{DC_WINC_COLOR_PALETTE + 243, 0x3d3d3d},    // dark dark grey
+	{DC_WINC_COLOR_PALETTE + 244, 0x0000b0},  // dark red
+	{DC_WINC_COLOR_PALETTE + 245, 0x00940b},  // dark green
+	{DC_WINC_COLOR_PALETTE + 246, 0x0093ff},  // orange
+	{DC_WINC_COLOR_PALETTE + 247, 0x969696},  // light grey
+	{DC_WINC_COLOR_PALETTE + 248, 0x454545},  // dark grey
+	{DC_WINC_COLOR_PALETTE + 249, 0xffe900},  // teal
+	{DC_WINC_COLOR_PALETTE + 250, 0xff0000},  // blue
+	{DC_WINC_COLOR_PALETTE + 251, 0x00ff00},  // green
+	{DC_WINC_COLOR_PALETTE + 252, 0x0000ff},  // red
+	{DC_WINC_COLOR_PALETTE + 253, 0},         // black
+	{DC_WINC_COLOR_PALETTE + 254, 0xffffff},  // white
+	{DC_WINC_COLOR_PALETTE + 255, 0x737373},  // grey
 	{DC_WINC_PALETTE_COLOR_EXT, 0x0},
 	
 	{DC_WINBUF_START_ADDR, IPL_SMALL_FB_ADDR}, // Framebuffer address.

@@ -91,6 +91,8 @@ u32  crc32_calc(u32 crc, const u8 *buf, u32 len);
 
 void panic(u32 val);
 void power_set_state(power_state_t state);
+void rcm_if_t210_or_off();
+bool is_t210();
 void power_set_state_ex(void *param);
 
 

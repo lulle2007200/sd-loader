@@ -37,7 +37,7 @@ static u32  sd_mode = SD_DEFAULT_SPEED;
 
 sdmmc_t sd_sdmmc;
 sdmmc_storage_t sd_storage;
-FATFS sd_fs;
+// FATFS sd_fs;
 
 void sd_error_count_increment(u8 type)
 {
@@ -73,10 +73,10 @@ bool sd_get_card_initialized()
 	return sd_init_done;
 }
 
-bool sd_get_card_mounted()
-{
-	return sd_mounted;
-}
+// bool sd_get_card_mounted()
+// {
+// 	return sd_mounted;
+// }
 
 u32 sd_get_mode()
 {
@@ -177,43 +177,43 @@ bool sd_initialize(bool power_cycle)
 	return false;
 }
 
-bool sd_mount()
-{
-	if (sd_init_done && sd_mounted)
-		return true;
+// bool sd_mount()
+// {
+// 	if (sd_init_done && sd_mounted)
+// 		return true;
 
-	int res = 0;
+// 	int res = 0;
 
-	if (!sd_init_done)
-		res = !sd_initialize(false);
+// 	if (!sd_init_done)
+// 		res = !sd_initialize(false);
 
-	if (res)
-	{
-		gfx_con.mute = false;
-		EPRINTF("Failed to init SD card.");
-		if (!sdmmc_get_sd_inserted())
-			EPRINTF("Make sure that it is inserted.");
-		else
-			EPRINTF("SD Card Reader is not properly seated!");
-	}
-	else
-	{
-		if (!sd_mounted)
-			// res = f_mount(&sd_fs, "0:", 1); // Volume 0 is SD.
-		if (res == FR_OK)
-		{
-			sd_mounted = true;
-			return true;
-		}
-		else
-		{
-			gfx_con.mute = false;
-			EPRINTFARGS("Failed to mount SD card (FatFS Error %d).\nMake sure that a FAT partition exists..", res);
-		}
-	}
+// 	if (res)
+// 	{
+// 		gfx_con.mute = false;
+// 		EPRINTF("Failed to init SD card.");
+// 		if (!sdmmc_get_sd_inserted())
+// 			EPRINTF("Make sure that it is inserted.");
+// 		else
+// 			EPRINTF("SD Card Reader is not properly seated!");
+// 	}
+// 	else
+// 	{
+// 		if (!sd_mounted)
+// 			// res = f_mount(&sd_fs, "0:", 1); // Volume 0 is SD.
+// 		if (res == FR_OK)
+// 		{
+// 			sd_mounted = true;
+// 			return true;
+// 		}
+// 		else
+// 		{
+// 			gfx_con.mute = false;
+// 			EPRINTFARGS("Failed to mount SD card (FatFS Error %d).\nMake sure that a FAT partition exists..", res);
+// 		}
+// 	}
 
-	return false;
-}
+// 	return false;
+// }
 
 static void _sd_deinit(bool deinit)
 {
@@ -226,7 +226,7 @@ static void _sd_deinit(bool deinit)
 
 	if (sd_init_done)
 	{
-		if (sd_mounted)
+		// if (sd_mounted)
 			// f_mount(NULL, "0:", 1); // Volume 0 is SD.
 
 		if (deinit)
@@ -238,58 +238,58 @@ static void _sd_deinit(bool deinit)
 	sd_mounted = false;
 }
 
-void sd_unmount() { _sd_deinit(false); }
+// void sd_unmount() { _sd_deinit(false); }
 void sd_end()     { _sd_deinit(true); }
 
-bool sd_is_gpt()
-{
-	return sd_fs.part_type;
-}
+// bool sd_is_gpt()
+// {
+// 	return sd_fs.part_type;
+// }
 
-void *sd_file_read(const char *path, u32 *fsize)
-{
-	FIL fp;
-	if (!sd_get_card_mounted())
-		return NULL;
+// void *sd_file_read(const char *path, u32 *fsize)
+// {
+// 	FIL fp;
+// 	if (!sd_get_card_mounted())
+// 		return NULL;
 
-	if (f_open(&fp, path, FA_READ) != FR_OK)
-		return NULL;
+// 	if (f_open(&fp, path, FA_READ) != FR_OK)
+// 		return NULL;
 
-	u32 size = f_size(&fp);
-	if (fsize)
-		*fsize = size;
+// 	u32 size = f_size(&fp);
+// 	if (fsize)
+// 		*fsize = size;
 
-	void *buf = malloc(size);
+// 	void *buf = malloc(size);
 
-	if (f_read(&fp, buf, size, NULL) != FR_OK)
-	{
-		free(buf);
-		f_close(&fp);
+// 	if (f_read(&fp, buf, size, NULL) != FR_OK)
+// 	{
+// 		free(buf);
+// 		f_close(&fp);
 
-		return NULL;
-	}
+// 		return NULL;
+// 	}
 
-	f_close(&fp);
+// 	f_close(&fp);
 
-	return buf;
-}
+// 	return buf;
+// }
 
-int sd_save_to_file(const void *buf, u32 size, const char *filename)
-{
-	FIL fp;
-	u32 res = 0;
-	if (!sd_get_card_mounted())
-		return FR_DISK_ERR;
+// int sd_save_to_file(const void *buf, u32 size, const char *filename)
+// {
+// 	FIL fp;
+// 	u32 res = 0;
+// 	if (!sd_get_card_mounted())
+// 		return FR_DISK_ERR;
 
-	res = f_open(&fp, filename, FA_CREATE_ALWAYS | FA_WRITE);
-	if (res)
-	{
-		EPRINTFARGS("Error (%d) creating file\n%s.\n", res, filename);
-		return res;
-	}
+// 	res = f_open(&fp, filename, FA_CREATE_ALWAYS | FA_WRITE);
+// 	if (res)
+// 	{
+// 		EPRINTFARGS("Error (%d) creating file\n%s.\n", res, filename);
+// 		return res;
+// 	}
 
-	f_write(&fp, buf, size, NULL);
-	f_close(&fp);
+// 	f_write(&fp, buf, size, NULL);
+// 	f_close(&fp);
 
-	return 0;
-}
+// 	return 0;
+// }

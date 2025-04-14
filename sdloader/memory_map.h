@@ -17,9 +17,11 @@
 #ifndef _MEMORY_MAP_H_
 #define _MEMORY_MAP_H_
 
+#if 0
+
 #define IRAM_START  0x40000000
 
-#define IPL_LOAD_ADDR             0x40000000 //48K
+#define IPL_LOAD_ADDR             0x40000000 //60K
 
 #define USB_EP_BULK_IN_BUF_ADDR   (IPL_LOAD_ADDR + MAX_PAYLOAD_SIZE) //64K
 #define USB_EP_BULK_IN_MAX_XFER   SZ_64K  
@@ -37,15 +39,69 @@
 
 #define IPL_STACK_TOP             0x40040000
 
-#define DRAM_START                0x80000000
-
-#define SDMMC_UPPER_BUFFER        USB_EP_BULK_IN_BUF_ADDR
+#define SDMMC_UPPER_BUFFER        USB_EP_BULK_OUT_BUF_ADDR
 #define SDMMC_UP_BUF_SZ           USB_EP_BULK_OUT_MAX_XFER
 
+#define PAYLOAD_BUF_ADDR          0x40010000 // load payload directly to 0x40010000 -> max. payload size reduced by 4Kb, but don't need a relocator
+#define PAYLOAD_MAX_SZ            (3 * SZ_64K - (4 * SZ_1K)) // leaves 4kb for stack
 
-#if (IPL_HEAP_START + SZ_8K) > IPL_STACK_TOP
-#error payload too large
+#if (IPL_HEAP_START + SZ_1K) > IPL_STACK_TOP
+// #error payload too large
 #endif 
+
+#else
+
+#define IRAM_START  0x40000000
+
+#ifndef IPL_LOAD_ADDR
+#define IPL_LOAD_ADDR             0x40003000 //64K max
+#endif
+
+#define IPL_SIZE_MAX              0x10000
+
+#define USB_EP_BULK_IN_BUF_ADDR   (IPL_LOAD_ADDR + IPL_SIZE_MAX) //32K
+#define USB_EP_BULK_IN_MAX_XFER   (SZ_64K / 2)
+#define USB_EP_BULK_OUT_BUF_ADDR  (USB_EP_BULK_IN_BUF_ADDR + USB_EP_BULK_IN_MAX_XFER) //32K
+#define USB_EP_BULK_OUT_MAX_XFER  (SZ_64K / 2)
+
+#define XUSB_RING_ADDR            (USB_EP_BULK_OUT_BUF_ADDR + USB_EP_BULK_OUT_MAX_XFER) //1.5K
+#define USB_EP_CONTROL_BUF_ADDR   (XUSB_RING_ADDR + SZ_1K + (SZ_1K / 2)) //1K
+
+
+#define IPL_SMALL_FB_SZ           (SZ_32K + SZ_16K + SZ_8K + SZ_4K)
+
+#define IPL_HEAP_SIZE_MAX         (SZ_1K)
+#define IPL_STACK_SIZE_MAX        (SZ_1K * 8)
+#define IPL_STACK_TOP             0x40040000
+
+#define IPL_HEAP_START            (IPL_STACK_TOP - IPL_STACK_SIZE_MAX - IPL_HEAP_SIZE_MAX)
+
+#define IPL_SMALL_FB_ADDR         (IPL_HEAP_START - IPL_SMALL_FB_SZ)
+
+// load payload to buffer after ipl, will be relocated to 0x40010000 before jumping to it
+#define PAYLOAD_BUF_ADDR          USB_EP_BULK_IN_BUF_ADDR
+#define PAYLOAD_SIZE_MAX          (IPL_HEAP_START - PAYLOAD_BUF_ADDR)
+
+#define PAYLOAD_SIZE_SAFE         (IPL_SMALL_FB_ADDR - PAYLOAD_BUF_ADDR)
+
+#define PAYLOAD_LOAD_ADDR         0x40010000
+
+#define SDMMC_UPPER_BUFFER        PAYLOAD_BUF_ADDR
+#define SDMMC_UP_BUF_SZ           PAYLOAD_SIZE_SAFE
+
+
+#if (PAYLOAD_SIZE_MAX) < 0x20000
+#error Payload buffer too small
+#endif
+
+#if (PAYLOAD_SIZE_SAFE) < 0x10000
+#error Payload buffer too small
+#endif
+
+#endif
+
+
+#define DRAM_START                0x80000000
 
 /* --- XUSB EP context and TRB ring buffers --- */
 

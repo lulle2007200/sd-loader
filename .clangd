@@ -2,6 +2,8 @@ CompileFlags:
   Compiler: C:\Users\Christoph\AppData\Local\devkitPro\devkitARM\bin\arm-none-eabi-gcc.exe
   Add:
     - -I.\bdk
-    - -I.\ums-loader\gfx
-    - -DGFX_INC="../$(GFX_DIR)/gfx.h"
-    - -DMAX_PAYLOAD_SIZE=53248
+    - -I.\sdloader\gfx
+    - -DGFX_INC="../sdloader/gfx/gfx.h"
+    - -DMAX_PAYLOAD_SIZE=65536
+    - -DBDK_MC_ENABLE_AHB_REDIRECT
+    - -Wno-main-return-type

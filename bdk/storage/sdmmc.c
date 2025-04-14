@@ -1307,7 +1307,8 @@ static int _sd_storage_set_card_bus_speed(sdmmc_storage_t *storage, u32 hs_type,
 int sd_storage_get_fmodes(sdmmc_storage_t *storage, u8 *buf, sd_func_modes_t *fmodes)
 {
 	if (!buf)
-		buf = (u8 *)SDMMC_UPPER_BUFFER;
+		return 0;
+		// buf = (u8 *)SDMMC_UPPER_BUFFER;
 
 	if (!_sd_storage_switch_get(storage, buf))
 		return 0;

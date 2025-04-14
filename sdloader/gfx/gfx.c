@@ -125,10 +125,17 @@ static const u8 _gfx_font[] = {
 
 #define RGB_TRIPLE(R, G, B) (((R) & 0xff) | (((G) & 0xff) << 8) | (((G) & 0xff) << 16))
 
-#define COL_BLACK RGB_TRIPLE(0x0, 0x0, 0x0)
-#define COL_GREY_
-
 // Palette idx 0-31: grey levels
+
+void gfx_con_set_origin(u32 x, u32 y){
+	gfx_con.savedx = x;
+	gfx_con.savedy = y;
+}
+
+void gfx_con_set_origin_rot(u32 x, u32 y){
+	gfx_con.savedx = y;
+	gfx_con.savedy = gfx_ctxt.height - x - 1;
+}
 
 void gfx_clear_grey(u8 color)
 {
@@ -147,6 +154,15 @@ void gfx_clear_color(u32 color)
 	// 	gfx_ctxt.fb[i] = color;
 }
 
+void gfx_clear_rect(u8 color, u32 pos_x, u32 pos_y, u32 width, u32 height){
+	for(u32 i = pos_y; i < pos_y + height; i++){
+		memset(gfx_ctxt.fb + (i * gfx_ctxt.stride) + pos_x, color, width);
+	}
+}
+void gfx_clear_rect_rot(u8 color, u32 pos_x, u32 pos_y, u32 width, u32 height){
+	gfx_clear_rect(color, pos_y, gfx_ctxt.height - pos_x - width, height, width);
+}
+
 void gfx_init_ctxt(u8 *fb, u32 width, u32 height, u32 stride)
 {
 	gfx_ctxt.fb = fb;
@@ -155,6 +171,7 @@ void gfx_init_ctxt(u8 *fb, u32 width, u32 height, u32 stride)
 	gfx_ctxt.stride = stride;
 }
 
+
 void gfx_con_init()
 {
 	gfx_con.gfx_ctxt = &gfx_ctxt;
@@ -162,9 +179,9 @@ void gfx_con_init()
 	gfx_con.y = 0;
 	gfx_con.savedx = 0;
 	gfx_con.savedy = 0;
-	gfx_con.fgcol = 0x1;
+	gfx_con.fgcol = COL_WHITE;
 	gfx_con.fillbg = 1;
-	gfx_con.bgcol = 0x0;
+	gfx_con.bgcol = COL_BLACK;
 	gfx_con.mute = 0;
 
 	gfx_con_init_done = true;
@@ -172,9 +189,9 @@ void gfx_con_init()
 
 void gfx_con_setcol(u32 fgcol, int fillbg, u32 bgcol)
 {
-	gfx_con.fgcol = fgcol & 0x1f;
+	gfx_con.fgcol = fgcol & 0xff;
 	gfx_con.fillbg = fillbg;
-	gfx_con.bgcol = bgcol & 0x1f;
+	gfx_con.bgcol = bgcol & 0xff;
 }
 
 void gfx_con_getpos(u32 *x, u32 *y)
@@ -183,10 +200,35 @@ void gfx_con_getpos(u32 *x, u32 *y)
 	*y = gfx_con.y;
 }
 
+void gfx_con_getpos_rot(u32 *x, u32 *y)
+{
+	*x = gfx_ctxt.height - gfx_con.y - 1;
+	*y = gfx_con.x;
+}
+
+
+void gfx_con_get_origin(u32 *x, u32 *y)
+{
+	*x = gfx_con.savedx;
+	*y = gfx_con.savedy;
+}
+
+void gfx_con_get_origin_rot(u32 *x, u32 *y)
+{
+	*x = gfx_ctxt.height - gfx_con.savedy - 1;
+	*y = gfx_con.savedx;
+}
+
 void gfx_con_setpos(u32 x, u32 y)
 {
 	gfx_con.x = x;
 	gfx_con.y = y;
+}
+
+void gfx_con_setpos_rot(u32 x, u32 y)
+{
+	gfx_con.x = y;
+	gfx_con.y = gfx_ctxt.height - x - 1;
 }
 
 void gfx_putc(char c)
@@ -214,23 +256,73 @@ void gfx_putc(char c)
 	}
 	else if (c == '\n')
 	{
-		gfx_con.x = 0;
+		gfx_con.x = gfx_con.savedx;
 		gfx_con.y += 8;
 		if (gfx_con.y > gfx_ctxt.height - 8)
-			gfx_con.y = 0;
+			gfx_con.y = gfx_con.savedy;
 	}
 }
 
-void gfx_puts(char *s)
+void gfx_putc_rot(char c){
+	// Duplicate code for performance reasons.
+	if (c >= 32 && c <= 126)
+	{
+		u8 *cbuf = (u8 *)&_gfx_font[8 * (c - 32)];
+		for (u32 i = 0; i < 8; i++)
+		{
+			u8 *fb = gfx_ctxt.fb + gfx_ctxt.stride * gfx_con.y + gfx_con.x + i;
+			u8 v = *cbuf++;
+			for (u32 j = 0; j < 8; j++)
+			{
+				if (v & 1)
+					*fb = gfx_con.fgcol;
+				else if (gfx_con.fillbg)
+					*fb = gfx_con.bgcol;
+				v >>= 1;
+				fb -= gfx_ctxt.stride;
+			}
+		}
+		gfx_con.y -= 8;
+	}
+
+	else if (c == '\n')
+	{
+		gfx_con.y = gfx_con.savedy;
+		gfx_con.x += 8;
+		if(gfx_con.x >= gfx_ctxt.width){
+			gfx_con.x = gfx_con.savedx;
+		}
+	}
+}
+
+static void _gfx_putc(bool rot, char c){
+	if(rot){
+		gfx_putc_rot(c);
+	}else{
+		gfx_putc(c);
+	}
+}
+
+
+static void _gfx_puts(bool rot, char *s)
 {
 	if (!s || !gfx_con_init_done || gfx_con.mute)
 		return;
 
 	for (; *s; s++)
-		gfx_putc(*s);
+		_gfx_putc(rot, *s);
 }
 
-static void _gfx_putn(u32 v, int base, char fill, int fcnt)
+void gfx_puts(char *s){
+	_gfx_puts(false, s);
+}
+
+void gfx_puts_rot(char *s){
+	_gfx_puts(true, s);
+}
+
+
+static void _gfx_putn(bool rot, u32 v, int base, char fill, int fcnt)
 {
 	char buf[65];
 	static const char digits[] = "0123456789ABCDEFghijklmnopqrstuvwxyz";
@@ -258,7 +350,7 @@ static void _gfx_putn(u32 v, int base, char fill, int fcnt)
 		}
 	}
 
-	gfx_puts(p);
+	_gfx_puts(rot, p);
 }
 
 void gfx_put_small_sep()
@@ -271,15 +363,13 @@ void gfx_put_big_sep()
 	gfx_putc('\n');
 }
 
-void gfx_printf(const char *fmt, ...)
+static void _gfx_vprintf(bool rot, const char *fmt, va_list ap)
 {
 	if (!gfx_con_init_done || gfx_con.mute)
 		return;
 
-	va_list ap;
 	int fill, fcnt;
 
-	va_start(ap, fmt);
 	while(*fmt)
 	{
 		if(*fmt == '%')
@@ -306,19 +396,19 @@ void gfx_printf(const char *fmt, ...)
 			switch(*fmt)
 			{
 			case 'c':
-				gfx_putc(va_arg(ap, u32));
+				_gfx_putc(rot, va_arg(ap, u32));
 				break;
 			case 's':
-				gfx_puts(va_arg(ap, char *));
+				_gfx_puts(rot, va_arg(ap, char *));
 				break;
 			case 'd':
-				_gfx_putn(va_arg(ap, u32), 10, fill, fcnt);
+				_gfx_putn(rot, va_arg(ap, u32), 10, fill, fcnt);
 				break;
 			case 'p':
 			case 'P':
 			case 'x':
 			case 'X':
-				_gfx_putn(va_arg(ap, u32), 16, fill, fcnt);
+				_gfx_putn(rot, va_arg(ap, u32), 16, fill, fcnt);
 				break;
 			case 'k':
 				gfx_con.fgcol = va_arg(ap, u32);
@@ -328,24 +418,39 @@ void gfx_printf(const char *fmt, ...)
 				gfx_con.fillbg = 1;
 				break;
 			case '%':
-				gfx_putc('%');
+				_gfx_putc(rot, '%');
 				break;
 			case '\0':
 				goto out;
 			default:
-				gfx_putc('%');
-				gfx_putc(*fmt);
+				_gfx_putc(rot, '%');
+				_gfx_putc(rot, *fmt);
 				break;
 			}
 		}
 		else
-			gfx_putc(*fmt);
+			_gfx_putc(rot, *fmt);
 		fmt++;
 	}
-
 	out:
+	return;
+}
+
+void gfx_printf(const char *fmt, ...){
+	va_list ap;
+	va_start(ap, fmt);
+	_gfx_vprintf(false, fmt, ap);
 	va_end(ap);
 }
+
+void gfx_printf_rot(const char *fmt, ...){
+	va_list ap;
+	va_start(ap, fmt);
+	_gfx_vprintf(true, fmt, ap);
+	va_end(ap);
+}
+
+
 
 void gfx_hexdump(u32 base, const void *buf, u32 len)
 {
@@ -480,6 +585,54 @@ void gfx_render_bmp_argb(const u32 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 
 	}
 }
 
+void gfx_render_bmp_1bit_rot(const u8 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y){
+	u32 x = pos_y;
+	u32 count = 0;
+	for(u32 i = 0; i < size_y; i++){
+		u32 y = gfx_ctxt.height - pos_x;
+		for(u32 j = 0; j < size_x; j++){
+			u8 *cur = gfx_ctxt.fb + gfx_ctxt.stride * y + x;
+			*cur = (buf[count / 8] >> (7 - (count % 8))) & 0x1;
+			y--;
+			count++;
+		}
+		x++;
+	}
+}
+
+void gfx_render_bmp_2bit_rot(const u8 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y){
+	u32 x = pos_y;
+	u32 count = 0;
+	for(u32 i = 0; i < size_y; i++){
+		u32 y = gfx_ctxt.height - pos_x;
+		for(u32 j = 0; j < size_x; j++){
+			u8 *cur = gfx_ctxt.fb + gfx_ctxt.stride * y + x;
+			*cur = (buf[count / 4] >> (6 - ((count % 4) * 2))) & 0x3;
+			y--;
+			count++;
+		}
+		x++;
+	}
+}
+
+void gfx_render_bmp_1bit(const u8 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y){
+	u32 count = 0;
+	u32 x = pos_x;
+	u32 y = pos_y;
+	for(u32 i = 0; i < size_y; i++){
+		x = pos_x;
+		for(u32 j = 0; j < size_x; j++){
+			u8 *cur = gfx_ctxt.fb + gfx_ctxt.stride * y + x;
+
+			*cur = (buf[count / 8] >> (7 - (count % 8))) & 0x1;
+
+			x++;
+			count++;
+		}
+		y++;
+	}
+}
+
 void gfx_fill_checkerboard_p8(const u32 col1, const u32 col2){
 	for(u32 i = 0; i < gfx_ctxt.height; i++){
 		u8 *cur = gfx_ctxt.fb + i * gfx_ctxt.stride;
@@ -544,4 +697,15 @@ void gfx_fill_checkerboard_p1(const u32 col1, const u32 col2){
 			*cur |= col << (7 - (j & 0x7));
 		}
 	}
+}
+
+
+void gfx_print_centered_rot(const char *fmt){
+	u32 len = strlen(fmt);
+	u32 x_pos = (gfx_ctxt.height - len * 8) / 2;
+	u32 x, y;
+	gfx_con_getpos_rot(&x, &y);
+	gfx_con_setpos_rot(x_pos, y);
+
+	gfx_printf_rot(fmt);
 }

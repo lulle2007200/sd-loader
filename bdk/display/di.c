@@ -39,6 +39,7 @@
 static u32  _display_id = 0;
 static u32  _dsi_bl = -1;
 static bool _nx_aula = false;
+static bool _display_init_done = false;
 
 static void _display_panel_and_hw_end(bool no_panel_deinit);
 
@@ -602,6 +603,8 @@ void display_init()
 
 	// Enable video display controller.
 	reg_write_array((u32 *)DISPLAY_A_BASE, _di_dc_video_enable_config, ARRAY_SIZE(_di_dc_video_enable_config));
+
+	_display_init_done = true;
 }
 
 void display_backlight_pwm_init()
@@ -811,7 +814,12 @@ skip_panel_deinit:
 	max7762x_regulator_enable(REGULATOR_LDO0, false);
 }
 
-void display_end() { _display_panel_and_hw_end(false); };
+void display_end() { 
+	if(_display_init_done){
+		_display_panel_and_hw_end(false); 
+		_display_init_done = false;
+	}
+};
 
 u16 display_get_decoded_panel_id()
 {
@@ -872,9 +880,12 @@ u32 *display_init_window_a_pitch_small()
 	return (u32*)DISPLAY_A(_DIREG(DC_WINBUF_START_ADDR));
 }
 
-u32 *display_init_window_a_pitch_small_palette()
+u32 *display_init_window_a_pitch_small_palette(const u32 *lut, const u32 lut_entries)
 {
-	memset((u32*)IPL_SMALL_FB_ADDR, 0, IPL_SMALL_FB_SZ);
+	memset((u32*)IPL_SMALL_FB_ADDR, 253, IPL_SMALL_FB_SZ);
+	for(u32 i = 0; i < lut_entries; i++){
+		((u32*)DISPLAY_A_BASE)[DC_WINC_COLOR_PALETTE + i] = lut[i];
+	}
 	reg_write_array((u32*)DISPLAY_A_BASE, _di_winA_pitch_small_palette, ARRAY_SIZE(_di_winA_pitch_small_palette));
 	usleep(3500);
 	return (u32*)IPL_SMALL_FB_ADDR;

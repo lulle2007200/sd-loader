@@ -258,7 +258,7 @@ static void _mbist_workaround()
 	CLOCK(CLK_RST_CONTROLLER_CLK_SOURCE_NVENC)  = (CLOCK(CLK_RST_CONTROLLER_CLK_SOURCE_NVENC) & 0x1FFFFFFF)  | 0x80000000; // Set clock source to PLLP_OUT.
 }
 
-static void _config_se_brom()
+__attribute__((unused)) static void _config_se_brom()
 {
 	// Enable Fuse visibility.
 	clock_enable_fuse(true);
@@ -366,7 +366,7 @@ void hw_init()
 	bool nx_hoag = fuse_read_hw_type() == FUSE_NX_HW_TYPE_HOAG;
 
 	// Bootrom stuff we skipped by going through rcm.
-	_config_se_brom();
+	// _config_se_brom();
 	//FUSE(FUSE_PRIVATEKEYDISABLE) = 0x11;
 
 	// Unset APB2JTAG_OVERRIDE_EN and OBS_OVERRIDE_EN.
@@ -387,7 +387,7 @@ void hw_init()
 	clock_enable_fuse(true);
 
 	// Disable Fuse programming.
-	fuse_disable_program();
+	// fuse_disable_program();
 
 	// Enable clocks to Memory controllers and disable AHB redirect.
 	mc_enable();
@@ -494,7 +494,7 @@ void hw_deinit(bool coreboot, u32 bl_magic)
 	// {
 	// 	msleep(10);
 
-	// 	clock_disable_cl_dvfs();
+	clock_disable_cl_dvfs();
 
 	// 	// Disable Joy-con detect in order to restore UART TX.
 	// 	gpio_config(GPIO_PORT_G, GPIO_PIN_0, GPIO_MODE_SPIO);
@@ -518,7 +518,8 @@ void hw_deinit(bool coreboot, u32 bl_magic)
 	// 	// Do not disable display or backlight at all.
 	// 	break;
 	// default:
-		display_end();
-		clock_disable_host1x();
+		// display_end();
+	display_end();
+	clock_disable_host1x();
 	// }
 }

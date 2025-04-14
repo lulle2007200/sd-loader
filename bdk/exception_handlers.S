@@ -105,7 +105,6 @@ _irq_setup:
 	MSR CPSR, #(MODE_SYS | IRQ | FIQ) /* SYSTEM mode, IRQ/FIQ disabled */
 	LDR SP, =0x4003FF00               /* Will be changed later to DRAM */
 
-	MOV LR, PC
 	BL setup_vectors
 	/*BL fiq_setup*/
 
