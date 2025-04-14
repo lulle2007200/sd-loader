@@ -47,6 +47,7 @@
 
 void system_maintenance(bool refresh){
 	tui_print_battery_icon(false);
+	tui_dim_on_timeout(0);
 }
 
 extern void excp_reset(void);

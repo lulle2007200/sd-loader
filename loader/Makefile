@@ -64,5 +64,5 @@ $(OUT_DIR):
 	@mkdir -p "$(OUT_DIR)"
 
 clean:
-	rm -rf $(OUT_DIR)
-	rm -rf $(BUILD_DIR)/$(TARGET)
+	@rm -rf $(OUT_DIR)
+	@rm -rf $(BUILD_DIR)

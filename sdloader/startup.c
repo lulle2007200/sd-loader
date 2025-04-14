@@ -1,3 +1,4 @@
+#include <soc/bpmp.h>
 #include <soc/hw_init.h>
 #include <storage/emmc.h>
 #include <storage/sd.h>
@@ -20,12 +21,10 @@ __attribute__((noreturn)) void ipl_main(){
 
 	main();
 
-	emmc_end();
-	sd_end();
-	hw_deinit(false, 0);
+	// rcm_if_t210_or_off();
+	power_set_state(POWER_OFF);
 
-	rcm_if_t210_or_off();
-	// power_set_state(POWER_OFF);
-
-	while(1){}
+	while(1){
+		bpmp_halt();
+	}
 }

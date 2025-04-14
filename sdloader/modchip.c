@@ -14,8 +14,8 @@
 static sd_loader_cfg_t default_cfg = {
 	.magic1 = MODCHIP_MAGIC,
 	.magic2 = MODCHIP_MAGIC,
-	.default_error_action = MODCHIP_ERROR_ACTION_MENU,
 	.default_payload_vol = MODCHIP_PAYLOAD_VOL_AUTO,
+	.default_action = MODCHIP_DEFAULT_ACTION_PAYLOAD,
 	.disable_menu_btn_combo = false,
 	.disable_ofw_btn_combo = false,
 };

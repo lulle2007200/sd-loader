@@ -7,8 +7,8 @@
 /* storage control modules to the FatFs module with a defined API.       */
 /*-----------------------------------------------------------------------*/
 
-#include "ff.h"			/* Obtains integer types */
-#include "diskio.h"		/* Declarations of disk functions */
+#include <libs/fatfs/ff.h>
+#include <libs/fatfs/diskio.h>		/* Declarations of disk functions */
 #include <storage/emmc.h>
 #include <storage/sd.h>
 #include <storage/sdmmc.h>
@@ -33,6 +33,7 @@ static bool ensure_partition(BYTE pdrv){
 		break;
 	case DEV_BOOT0:
 		part = EMMC_BOOT0;
+		break;
 	case DEV_SD:
 		return true;
 	}
@@ -139,6 +140,11 @@ DRESULT disk_write (
 	}
 
 	ensure_partition(pdrv);
+
+	// we only ever want to write to boot0, return error if trying to write to anyting else
+	if(pdrv == DEV_GPP || pdrv == DEV_BOOT1 || pdrv == DEV_BOOT1_1MB || pdrv == DEV_SD){
+		return RES_ERROR;
+	}
 
 	return sdmmc_storage_write(storage, actual_sector, count, (u8*)buff) ? RES_OK : RES_ERROR;
 }

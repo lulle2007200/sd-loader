@@ -3,9 +3,18 @@ from Crypto.Signature import pss
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
+import os
 import struct
 import argparse
 
+
+try:
+	bek = os.environ["BEK"]
+except:
+	print("BEK environment variable not set")
+	exit(-1)
+
+bek = bytes.fromhex(bek)
 
 
 rsa_e_custom      = int.from_bytes(bytes.fromhex("010001"), byteorder = 'little', signed = False)
@@ -252,6 +261,229 @@ class Payload:
 			ret += f"{prefix}{True}"
 		return ret
 
+
+class EristaBlEntry:
+	def __init__(self, signature, version, start_block, length, load_address, entry_point, payload, attributes):
+		self.version = version
+		self.start_block = start_block
+		self.length = length
+		self.load_address = load_address
+		self.entry_point = entry_point
+		self.attributes = attributes
+		self.payload = payload
+		self.signature = signature
+		pass
+
+	@classmethod
+	def from_file(cls, path, path_loader, version, start_block, load_address):
+		if version is None:
+			version = 9
+		if start_block is None:
+			start_block = 0xfc
+		if load_address is None:
+			load_address  = 0x40010000
+		with open(path, "rb") as f:
+			with open(path_loader, "rb") as fl:
+				data = bytearray(f.read())
+				data_ldr = bytearray(fl.read())
+				h = get_sha256(data)
+				signature = get_cipher_pss(rsa_key_custom).sign(h)
+				return cls(signature, version, start_block, len(data), load_address, load_address + len(data_ldr) + 0x20, data, 0x3)
+
+	@classmethod
+	def from_bytes(cls, data, payload):
+		version = int.from_bytes(data[0:0x4], byteorder = 'little', signed = False)
+		start_block = int.from_bytes(data[0x4:0x8], byteorder = 'little', signed = False)
+		length = int.from_bytes(data[0xc:0x10], byteorder = 'little', signed = False)
+		load_address = int.from_bytes(data[0x10:0x14], byteorder = 'little', signed = False)
+		entry_point = int.from_bytes(data[0x14:0x18], byteorder = 'little', signed = False)
+		attributes = int.from_bytes(data[0x18:0x1c], byteorder = 'little', signed = False)
+		signature = data[0x20:0x120][::-1]
+		return cls(signature, version, start_block, length, load_address, entry_point, payload, attributes)
+
+	def to_bytes(self):
+		data = bytearray()
+		data += struct.pack("<I", self.version)
+		data += struct.pack("<I", self.start_block)
+		data += struct.pack("<I", 0)
+		data += struct.pack("<I", self.length)
+		data += struct.pack("<I", self.load_address)
+		data += struct.pack("<I", self.entry_point)
+		data += struct.pack("<I", self.attributes)
+		data += bytearray(0x10)
+		data += self.signature[::-1]
+
+		return data
+
+	def is_signature_valid(self):
+		h = get_sha256(self.payload)
+		try:
+			get_cipher_pss(rsa_key_custom).verify(h, self.signature)
+		except ValueError as e:
+			return False
+		return True
+
+	def verify(self):
+		errs = []
+		if not self.is_signature_valid():
+			errs += [ValueError("Invalid signature")]
+		if not self.length == len(self.payload):
+			errs += [ValueError("Invalid length")]
+		if errs:
+			raise ExceptionGroup("Package invalid", errs)
+		else:
+			return True
+
+	def __str__(self):
+		ret = ""
+		ret += f"Version:               {self.version}\n"
+		ret += f"Data Size:             0x{self.length:x}\n"
+		ret += f"Entrypoint:            0x{self.entry_point:x}\n"
+		ret += f"Load addr.:            0x{self.load_address:x}\n"
+		prefix = "Signature:             "
+		width = 64
+		for i in range(0, len(self.signature.hex()), width):
+			ret += f"{prefix if i == 0 else ' ' * len(prefix)}{self.signature.hex()[i:i+width]}\n"
+		prefix = "Is valid:              "
+		try:
+			self.verify()
+		except ExceptionGroup as eg:
+			i = 0
+			for e in eg.exceptions:
+				ret += f"{prefix if i == 0 else ' ' * len(prefix)}{e}\n"
+				i += 1
+		else:
+			ret += f"{prefix}{True}"
+		return ret
+
+class EristaBct:
+	def __init__(self, bl_entry):
+		self.bl_entry = bl_entry
+		self.loaders_used = 1
+
+		self.entries_used = 0x200
+		self.virtual_block_size_log2 = 0xf
+		self.block_size_log2 = 0xe
+		self.key = rsa_n_custom
+
+		self.boot_data_version = 0x210001
+		self.partition_size = 0x1000000
+		self.num_param_sets = 0x1
+		self.type = 0x4
+		self.page_size_log2 = 0x9
+		self.clock_divider = 0x9
+		self.data_width = 0x2
+
+		h = get_sha256(self.data_to_sign())
+		self.signature = get_cipher_pss(rsa_key_custom).sign(h)
+
+	def data_to_sign(self):
+		data = bytearray()
+		data += bytearray(0x10)
+		data += bytearray(0x10)
+		data += struct.pack("<I", self.boot_data_version)
+		data += struct.pack("<I", self.block_size_log2)
+		data += struct.pack("<I", self.page_size_log2)
+		data += struct.pack("<I", self.partition_size)
+		data += struct.pack("<I", self.num_param_sets)
+		data += struct.pack("<I", self.type)
+		data += struct.pack("<I", self.clock_divider)
+		data += struct.pack("<I", self.data_width)
+		data += bytearray(0x40 - 0x8)
+		data += bytearray(0x4)
+		data += bytearray(0x768)
+		data += bytearray(0x768)
+		data += bytearray(0x768)
+		data += bytearray(0x768)
+		data += struct.pack("<I", self.loaders_used)
+		data += self.bl_entry.to_bytes()
+		data += bytearray(0x12c)
+		data += bytearray(0x12c)
+		data += bytearray(0x12c)
+		data += bytearray(1)
+		data += bytearray(4)
+		data += bytearray(4)
+		data += struct.pack("<I", 0x80000000)
+		data += bytearray(0x13)
+
+		return data
+
+	def to_bytes(self):
+		data = bytearray()
+		data += struct.pack("<I", self.entries_used)
+		data += struct.pack("<B", self.virtual_block_size_log2)
+		data += struct.pack("<B", self.block_size_log2)
+		data += bytearray(0x200)
+		data += bytearray(0xa)
+		data += rsa_n_custom.to_bytes(length = 0x100, byteorder = "little", signed = False)
+		data += bytearray(0x10)
+		h = get_sha256(self.data_to_sign())
+		data += get_cipher_pss(rsa_key_custom).sign(h)[::-1]
+
+		data += bytearray(0x4)
+		data += bytearray(0x20)
+		data += bytearray(0xc4)
+		data += bytearray(0x4)
+		data += bytearray(0x4)
+
+		data += self.data_to_sign()
+
+		return data
+
+	def write_to_file(self, path):
+		with open(path, "wb") as f:
+			f.write(self.to_bytes())
+
+
+	def write_sig_to_file(self, path):
+		with open(path, "wb") as f:
+			data = self.to_bytes()
+			f.write(data[0x320:0x420])
+
+	def write_bl_entry_to_file(self, path):
+		with open(path, "wb") as f:
+			data = self.to_bytes()
+			f.write(data[0x2330:0x245c])
+
+
+	def is_signature_valid(self):
+		h = get_sha256(self.data_to_sign())
+		try:
+			get_cipher_pss(rsa_key_custom).verify(h, self.signature)
+		except ValueError as e:
+			return False
+		return True
+
+	def verify(self):
+		errs = []
+		if not self.is_signature_valid():
+			errs += [ValueError("Invalid signature")]
+		if errs:
+			raise ExceptionGroup("Package invalid", errs)
+		else:
+			return True
+
+	def __str__(self):
+		ret = ""
+		prefix = "Signature:             "
+		width = 64
+		for i in range(0, len(self.signature.hex()), width):
+			ret += f"{prefix if i == 0 else ' ' * len(prefix)}{self.signature.hex()[i:i+width]}\n"
+		prefix = "Is valid:              "
+		try:
+			self.verify()
+		except ExceptionGroup as eg:
+			i = 0
+			for e in eg.exceptions:
+				ret += f"{prefix if i == 0 else ' ' * len(prefix)}{e}\n"
+				i += 1
+		else:
+			ret += f"{prefix}{True}"
+
+		ret += "\nBootloader:\n"
+		ret += str(self.bl_entry)
+		return ret
+
 def make_package(args):
 	pkg1 = Pkg1.from_file(args.payload, args.loader, args.is_encrypted)
 	p = Payload.from_components(pkg1, entry_point = args.entry_point, load_address = args.load_addr, version = args.version)
@@ -271,6 +503,18 @@ def decrypt(args):
 		data = decrypt_bytes(bytearray(fin.read()))
 		with open(args.file_out, "wb") as fout:
 			fout.write(data)
+
+def make_erista_bct(args):
+	bl_entry = EristaBlEntry.from_file(args.payload_enc, args.loader_enc, args.version, args.start_block, args.load_addr)
+	bct = EristaBct(bl_entry)
+	print(bct)
+	if args.out_file is not None:
+		bct.write_to_file(args.out_file)
+	if args.bl_entry_out_path is not None:
+		bct.write_bl_entry_to_file(args.bl_entry_out_path)
+	if args.sig_out_path is not None:
+		bct.write_sig_to_file(args.sig_out_path)
+
 
 def auto_int(x):
 	return int(x, 0)
@@ -297,6 +541,18 @@ parser_dec = subparsers.add_parser("decrypt")
 parser_dec.add_argument("file_in", type = str)
 parser_dec.add_argument("file_out", type = str)
 parser_dec.set_defaults(func = decrypt)
+
+parser_make_erista = subparsers.add_parser("make_erista_bct")
+parser_make_erista.add_argument("payload_enc", type = str)
+parser_make_erista.add_argument("loader_enc", type = str)
+parser_make_erista.add_argument("--out_file", type = str)
+parser_make_erista.add_argument("--load_addr", type = auto_int)
+parser_make_erista.add_argument("--entry_point", type = auto_int)
+parser_make_erista.add_argument("--version", type = auto_int)
+parser_make_erista.add_argument("--start_block", type = auto_int)
+parser_make_erista.add_argument("--sig_out_path", type = str)
+parser_make_erista.add_argument("--bl_entry_out_path", type = str)
+parser_make_erista.set_defaults(func = make_erista_bct)
 
 
 args = parser.parse_args()

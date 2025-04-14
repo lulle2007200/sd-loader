@@ -1,5 +1,6 @@
 #include "./tui.h"
 
+#include <display/di.h>
 #include <gfx.h>
 #include <gfx_utils.h>
 #include <soc/timer.h>
@@ -7,6 +8,8 @@
 #include <utils/btn.h>
 #include <power/max17050.h>
 #include <power/bq24193.h>
+
+#define DIM_TIMEOUT 20000
 
 static bool tui_entry_is_selectable(tui_entry_t *entry){
 	if(entry->disabled){
@@ -22,6 +25,24 @@ static bool tui_entry_is_selectable(tui_entry_t *entry){
 		return true;
 	default:
 		return false;
+	}
+}
+
+static void update_brightness(u32 brightness){
+	if(display_get_backlight_brightness() != brightness){
+		display_backlight_brightness(brightness, 1000);
+	}
+}
+
+void tui_dim_on_timeout(u8 btn){
+	static u32 time = 0;
+	if(btn){
+		time = get_tmr_ms();
+		update_brightness(128);
+	}else{
+		if(get_tmr_ms() - time > DIM_TIMEOUT){
+			update_brightness(32);
+		}
 	}
 }
 
@@ -300,6 +321,7 @@ tui_status_t tui_menu_start_rot(tui_entry_menu_t *menu){
 			}
 		}
 
+		tui_dim_on_timeout(btn);
 		tui_print_battery_icon(false);
 
 		if(btn & BTN_VOL_UP){
@@ -351,6 +373,8 @@ tui_status_t tui_menu_start_rot(tui_entry_menu_t *menu){
 				default:
 					break;
 			}
+			//restore brightness on return from action
+			tui_dim_on_timeout(1);
 		}
 
 		if(btn){

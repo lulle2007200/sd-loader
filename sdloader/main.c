@@ -53,6 +53,13 @@ static sd_loader_cfg_t sdloader_cfg;
 static payload_ctx_t payload_ctx = {0};
 
 
+static void deinit(){
+	unmount_drive();
+	sd_end();
+	emmc_end();
+	hw_deinit(false, 0);
+}
+
 static SD_LOADER_STATUS read_payload(FIL *f){
 	FSIZE_t sz = f_size(f);
 	FRESULT res;
@@ -121,12 +128,12 @@ static void handle_sdloader_status(SD_LOADER_STATUS res, u32 extra_info){
 }
 
 __attribute__((noreturn)) static void launch_payload(){
-	emmc_end();
-	sd_end();
-	hw_deinit(false, 0);
+	deinit();
 	/* payloads (may) expect to be loaded at 0x40010000, relocate before jumping to payload */
 	reloc_and_start_payload(payload_ctx.addr, payload_ctx.size);
-	while(1){}
+	while(1){
+		bpmp_halt();
+	}
 }
 
 static void handle_file_error(const char *path, u8 drive, FRESULT res){
@@ -149,7 +156,11 @@ static SD_LOADER_STATUS load_payload(){
 
 	const char *path = "payload.bin";
 
-	res = open_file_on_any(path, &f, &drive);
+	if(sdloader_cfg.default_payload_vol == MODCHIP_PAYLOAD_VOL_AUTO){
+		res = open_file_on_any(path, &f, &drive);
+	}else{
+		res = open_file_on(path, &f, sdloader_cfg.default_payload_vol - 1);
+	}
 
 	if(res != FR_OK){
 		handle_file_error(path, drive, res);
@@ -178,10 +189,12 @@ static void start_ums(){
 }
 
 static void power_off_cb(void *data){
+	deinit();
 	power_set_state(POWER_OFF);
 }
 
 static void rcm_cb(void *data){
+	deinit();
 	rcm_if_t210_or_off();
 }
 
@@ -190,6 +203,7 @@ static void ums_cb(void *data){
 }
 
 static void ofw_cb(void *data){
+	deinit();
 	power_set_state(REBOOT_BYPASS_FUSES);
 }
 
@@ -211,7 +225,7 @@ static void retry_cb(void *data){
 static void start_toolbox(){
 	gfx_con_setpos_rot(0, 0);
 	clear_screen_except_logo_and_status();
-	toolbox(0, 88);
+	toolbox(0, 88, &sdloader_cfg);
 }
 
 static void toolbox_cb(){
@@ -223,9 +237,9 @@ static void do_menu(){
 	tui_entry_menu_t menu = {
 		.colors = &TUI_COLOR_SCHEME_DEFAULT,
 		.height = 5,
-		.pad = 10,
-		.width = 10,
-		.pos_x = (gfx_ctxt.height - 10 * 8) / 2,
+		.pad = 14,
+		.width = 14,
+		.pos_x = (gfx_ctxt.height - 14 * 8) / 2,
 		.pos_y = 88,
 		.title = {
 			.text = NULL,
@@ -236,7 +250,7 @@ static void do_menu(){
 	tui_entry_t menu_more[] = {
 		[0] = TUI_ENTRY_ACTION_NO_BLANK("Reboot RCM", rcm_cb,     NULL, false, &menu_more[1]),
 		[1] = TUI_ENTRY_ACTION_NO_BLANK("UMS",        ums_cb,     NULL, false, &menu_more[2]),
-		[2] = TUI_ENTRY_ACTION_NO_BLANK("Retry",      retry_cb,   NULL, false, &menu_more[3]),
+		[2] = TUI_ENTRY_ACTION_NO_BLANK("Launch payload",      retry_cb,   NULL, false, &menu_more[3]),
 		[3] = TUI_ENTRY_ACTION_NO_BLANK("Toolbox",    toolbox_cb,  NULL, false, &menu_more[4]),
 		[4] = TUI_ENTRY_BACK(NULL),
 	};
@@ -275,23 +289,27 @@ void main(){
 
 	get_cfg();
 
-	// u8 btn = btn_read_vol();
+	u8 btn = btn_read_vol();
 
-	// boot straight to ofw if vol+/vol- held
-	// if(btn & BTN_VOL_DOWN && btn & BTN_VOL_UP){
-	// 	power_set_state(REBOOT_BYPASS_FUSES);
-	// }
-
-
-	// if(!(btn & BTN_VOL_UP)){
-	// 	try_launch_payload();
-	// }else{
+	if(btn & BTN_VOL_DOWN && btn & BTN_VOL_UP && !sdloader_cfg.disable_ofw_btn_combo){
+		power_set_state(REBOOT_BYPASS_FUSES);
+	}else if(btn & BTN_VOL_UP && !(btn & BTN_VOL_DOWN)){
 		handle_sdloader_status(SD_LOADER_FORCE_MENU, 0);
-	// }
+	}else{
+		if(sdloader_cfg.default_action == MODCHIP_DEFAULT_ACTION_PAYLOAD){
+			try_launch_payload();
+		}else if(sdloader_cfg.default_action == MODCHIP_DEFAULT_ACTION_OFW){
+			power_set_state(REBOOT_BYPASS_FUSES);
+		}else{
+			init_display();
+		}
+	}
 
 	bq24193_enable_charger();
 
 	do_menu();
 
 	gfx_clear_color(COL_BLACK);
+
+	deinit();
 }

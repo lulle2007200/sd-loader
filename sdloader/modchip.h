@@ -6,9 +6,10 @@
 
 // last 64kb of boot0
 #define MODCHIP_BL_START_SECTOR   0x1f80
-// modchip writes firmware descriptor to last sector
+// fw descriptor and config live on last sector
 #define MODCHIP_BL_MAX_SIZE       (0x10000 - 0x200)
 
+// last 128kgb of boot0
 #define MODCHIP_FW_START_SECTOR   0x1f00
 #define MODCHIP_FW_MAX_SIZE       0x20000
 
@@ -52,22 +53,23 @@ typedef struct{
 typedef struct{
 	u32 magic1;
 	u32 magic2;
-	u8 default_error_action:2;  // 0: show menu, 1: boot OFW
 	u8 default_payload_vol:3;
+	u8 default_action:2;
 	u8 disable_ofw_btn_combo:1;
 	u8 disable_menu_btn_combo:1; // DO NOT USE, menu can't be forced to show otherwise
 }sd_loader_cfg_t;
 
 typedef enum{
-	MODCHIP_ERROR_ACTION_MENU = 0x0,
-	MODCHIP_ERROR_ACTION_OFW  = 0x1,
-}modchip_error_action;
+	MODCHIP_DEFAULT_ACTION_PAYLOAD = 0x0,
+	MODCHIP_DEFAULT_ACTION_OFW     = 0x1,
+	MODCHIP_DEFAULT_ACTION_MENU    = 0x2,
+}modchip_default_action;
 
 typedef enum{
 	MODCHIP_PAYLOAD_VOL_AUTO      = 0x0,
 	MODCHIP_PAYLOAD_VOL_SD        = 0x1,
-	MODCHIP_PAYLOAD_VOL_BOOT0_OFF = 0x2,
-	MODCHIP_PAYLOAD_VOL_BOOT0     = 0x3,
+	MODCHIP_PAYLOAD_VOL_BOOT1_1MB = 0x2,
+	MODCHIP_PAYLOAD_VOL_BOOT1     = 0x3,
 	MODCHIP_PAYLOAD_VOL_GPP       = 0x4,
 }modchip_payload_vol;
 

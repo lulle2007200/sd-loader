@@ -23,7 +23,13 @@ BDK_DIR = ../bdk
 GFX_DIR = gfx
 STORAGE_DIR = ./storage
 
-VPATH = $(dir $(STORAGE_DIR)/) $(dir $(GFX_DIR)/) $(dir $(SRC_DIR)/) $(dir $(BDK_DIR)/) $(BDK_DIR)/ $(dir $(wildcard $(BDK_DIR)/*/)) $(dir $(wildcard $(BDK_DIR)/*/*/))
+LOGO = logo.bmp
+
+BMP2HDR = ../tools/bmp2header/output/bmp2header.exe
+
+GENERATED = $(BUILD_DIR)/generated
+
+VPATH = $(dir $(STORAGE_DIR)/) $(dir $(GENERATED)/) $(dir $(GFX_DIR)/) $(dir $(SRC_DIR)/) $(dir $(BDK_DIR)/) $(BDK_DIR)/ $(dir $(wildcard $(BDK_DIR)/*/)) $(dir $(wildcard $(BDK_DIR)/*/*/))
 
 TARGET = sdloader
 PAYLOAD_NAME = $(TARGET)
@@ -47,7 +53,7 @@ OBJS_NO_LTO_S = $(addprefix $(BUILD_DIR)/$(TARGET)/, \
 	start.o exception_handlers.o)
 
 GFX_INC = '"../sdloader/$(GFX_DIR)/gfx.h"'
-INC_DIR = -I./$(BDK_DIR) -I./$(SRC_DIR) -I./$(GFX_DIR)
+INC_DIR = -I./$(BDK_DIR) -I./$(SRC_DIR) -I./$(GFX_DIR) -I./$(GENERATED)
 
 CUSTOMDEFINES += -DGFX_INC=$(GFX_INC) -DMAX_PAYLOAD_SIZE=$(MAX_PAYLOAD_SIZE) -DBDK_MC_ENABLE_AHB_REDIRECT # BDK_MC_ENABLE_AHB_REDIRECT for iram access
 
@@ -103,8 +109,11 @@ $(OBJS_NO_LTO_S): $(BUILD_DIR)/$(TARGET)/%.o: %.S
 
 #----------------------------------------------
 
+$(GENERATED)/%.h: % $(GENERATED)
+	@$(BMP2HDR) $< $@ 2
 
-$(OBJS): | $(BUILD_DIR)/$(TARGET)
+
+$(OBJS): $(GENERATED)/$(LOGO).h | $(BUILD_DIR)/$(TARGET)
 
 $(BUILD_DIR)/$(TARGET):
 	@mkdir -p "$(BUILD_DIR)/$(TARGET)"
@@ -112,6 +121,9 @@ $(BUILD_DIR)/$(TARGET):
 $(OUT_DIR):
 	@mkdir -p "$(OUT_DIR)"
 
+$(GENERATED):
+	@mkdir -p "$(GENERATED)"
+
 clean:
-	rm -rf $(OUT_DIR)
-	rm -rf $(BUILD_DIR)/$(TARGET)
+	@rm -rf $(OUT_DIR)
+	@rm -rf $(BUILD_DIR)
