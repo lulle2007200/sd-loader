@@ -13,6 +13,9 @@
 #define MODCHIP_FW_START_SECTOR   0x1f00
 #define MODCHIP_FW_MAX_SIZE       0x20000
 
+#define MODCHIP_RP_BL_START_SECTOR   0x1f00
+#define MODCHIP_RP_BL_MAX_SIZE       0x20000
+
 #define MODCHIP_CMD_SECTOR        0x1
 #define MODCHIP_CMD_OFFSET        0x0
 
@@ -28,7 +31,8 @@
 
 typedef enum{
 	MODCHIP_CMD_FW_UPDATE = 0x6db92148,
-	MODCHIP_CMD_RST       = 0x515205c5
+	MODCHIP_CMD_RST       = 0x515205c5,
+	MODCHIP_CMD_BL_UPDATE = 0x7a21cae1,
 }modchip_cmd;
 
 typedef struct{
@@ -91,5 +95,8 @@ bool modchip_write_fw_update(u8 *buf, u32 size);
 bool modchip_write_fw_update_from_file(FIL *f);
 bool modchip_write_ipl_update(u8 *buf, u32 size);
 bool modchip_write_ipl_update_from_file(FIL *f);
+bool modchip_write_bl_update(u8 *buf, u32 size);
+bool modchip_write_bl_update_from_file(FIL *f);
+bool modchip_write_bl_update_cmd(u32 sector_start, u32 sector_cnt);
 
 #endif

@@ -135,6 +135,7 @@ bool modchip_write_fw_update_from_file(FIL *f){
 
 	// we can read entire fw update into memory first
 	if(size < SDMMC_UP_BUF_SZ){
+		memset(buf + (size & ~(0x200 - 1)), 0, 0x200);
 		f_res = f_read(f, buf, size, &br);
 		if(f_res != FR_OK || br != size){
 			return false;
@@ -148,7 +149,8 @@ bool modchip_write_fw_update_from_file(FIL *f){
 		u32 btr = MIN((size - i), max_btr);
 
 		if(btr < max_btr){
-			memset(buf + (btr / 0x200), 0, 0x200);
+			memset(buf + (btr & ~(0x200 - 1)), 0, 0x200);
+
 		}
 
 		f_res = f_read(f, buf, btr, &br);
@@ -186,6 +188,10 @@ bool modchip_write_ipl_update_from_file(FIL *f){
 	u8 *buf = (u8*)SDMMC_UPPER_BUFFER;
 	u32 br;
 
+	if(size > SDMMC_UP_BUF_SZ){
+		return false;
+	}
+
 	memset(buf + (size & ~(0x200 - 1)), 0, 0x200);
 
 	FRESULT res = f_read(f, buf, size, &br);
@@ -200,7 +206,12 @@ bool modchip_write_ipl_update_from_file(FIL *f){
 bool modchip_write_rst_cmd(){
 	modchip_cmd_t cmd = {0};
 	cmd.cmd = MODCHIP_CMD_RST;
-	return modchip_write_cmd(&cmd);
+	u8 *buf = (u8*)SDMMC_UPPER_BUFFER;
+	if(!disk_read(DEV_BOOT0, buf, 1, 1)){
+		return false;
+	}
+	memset(buf, 0, 256);
+	return disk_write(DEV_BOOT0, buf, 1, 1) && modchip_write_cmd(&cmd);
 }
 
 bool modchip_write_fw_update_cmd(u32 sector_start, u32 sector_cnt){
@@ -228,4 +239,48 @@ bool modchip_read_desc(modchip_desc_t *desc){
 
 bool modchip_is_desc_valid(modchip_desc_t *desc){
 	return desc->signature == MODCHIP_DESC_SIGNATURE;
+}
+
+bool modchip_write_bl_update_cmd(u32 sector_start, u32 sector_cnt){
+	modchip_cmd_t cmd = {0};
+	cmd.cmd = MODCHIP_CMD_BL_UPDATE;
+	cmd.fw_update_info.fw_sector_cnt   = sector_cnt;
+	cmd.fw_update_info.fw_sector_start = sector_start;
+	return modchip_write_cmd(&cmd);
+}
+
+bool modchip_write_bl_update(u8 *buf, u32 size){
+	u32 sec_cnt = (size + 0x1ff) / 0x200;
+
+	// modchip will overwrite our config and fw descriptor when applying update/resetting
+	DRESULT res = disk_write(DEV_BOOT0, buf, MODCHIP_RP_BL_START_SECTOR, sec_cnt);
+
+	if(res == RES_OK){
+		// fw image written, now issue fw update command. if this fails, not much we can do
+		return modchip_write_bl_update_cmd(MODCHIP_RP_BL_START_SECTOR, sec_cnt);
+	}else{
+		// fw image write failed, issue reset command so modchip rewrites sdloader atleast, if this fails too, not much we can do
+		modchip_write_rst_cmd();
+		return false;
+	}
+}
+
+bool modchip_write_bl_update_from_file(FIL *f){
+	u32 size = f_size(f);
+	u8 *buf = (u8*)SDMMC_UPPER_BUFFER;
+	u32 br;
+
+	if(size > SDMMC_UP_BUF_SZ){
+		return false;
+	}
+
+	memset(buf + (size & ~(0x200 - 1)), 0xff, 0x200);
+
+	FRESULT res = f_read(f, buf, size, &br);
+
+	if(res != FR_OK || br != size){
+		return false;
+	}
+
+	return modchip_write_bl_update(buf, size);
 }

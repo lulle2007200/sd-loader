@@ -159,7 +159,8 @@ static SD_LOADER_STATUS load_payload(){
 	if(sdloader_cfg.default_payload_vol == MODCHIP_PAYLOAD_VOL_AUTO){
 		res = open_file_on_any(path, &f, &drive);
 	}else{
-		res = open_file_on(path, &f, sdloader_cfg.default_payload_vol - 1);
+		drive = (u8)sdloader_cfg.default_payload_vol - 1;
+		res = open_file_on(path, &f, drive);
 	}
 
 	if(res != FR_OK){

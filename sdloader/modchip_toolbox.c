@@ -157,6 +157,7 @@ static void disable_all_cmds(tui_entry_menu_t *menu){
 	menu->entries[2].disabled = true;
 	menu->entries[3].disabled = true;
 	menu->entries[4].disabled = true;
+	menu->entries[6].disabled = true;
 }
 
 static void reset(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
@@ -235,6 +236,31 @@ static void update_fw(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
 	entry->disabled = true;
 }
 
+static void update_bl(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
+	confirm_menu_data_t *confirm_data = (confirm_menu_data_t*)data;
+	tui_entry_menu_t *top_menu = confirm_data->menu;
+	fw_update_info *update_info = (fw_update_info*)confirm_data->data;
+
+	u32 start = get_tmr_ms();
+	tui_print_status(COL_TEAL, "Writing BL update command...");
+
+	bool res = modchip_write_bl_update_from_file(update_info->f);
+
+	if(get_tmr_ms() - start < 1000){
+		msleep(1000 - (get_tmr_ms() - start));
+	}
+
+	if(!res){
+		tui_print_status(COL_ORANGE, "BL update command fail. Reboot console!");
+	}else{
+		tui_print_status(COL_TEAL, "BL update command sent. Reboot console!");
+	}
+	command_pending = true;
+	disable_all_cmds(top_menu);
+	tui_print_menu(top_menu);
+	entry->disabled = true;
+}
+
 static void update_ipl(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
 	confirm_menu_data_t *confirm_data = (confirm_menu_data_t*)data;
 	tui_entry_menu_t *top_menu = confirm_data->menu;
@@ -299,6 +325,11 @@ static void update_cb(const char *path, u32 size_max, tui_action_modifying_cb_t 
 static void fw_update_cb(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
 	const char *path = "update.bin"; 
 	update_cb(path, MODCHIP_FW_MAX_SIZE, update_fw, menu);
+}
+
+static void bl_update_cb(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
+	const char *path = "bl_update.bin"; 
+	update_cb(path, MODCHIP_RP_BL_MAX_SIZE, update_bl, menu);
 }
 
 static void fw_rollback_cb(void *data, tui_entry_t *entry, tui_entry_menu_t *menu){
@@ -470,7 +501,8 @@ void toolbox(u32 x, u32 y, sd_loader_cfg_t *cfg){
 		[3] = TUI_ENTRY_ACTION_MODIFYING_NO_BLANK("FW  Rollback", fw_rollback_cb, NULL, command_pending, &menu_entries[4]),
 		[4] = TUI_ENTRY_ACTION_MODIFYING_NO_BLANK("IPL Update", ipl_update_cb, NULL, command_pending, &menu_entries[5]),
 		[5] = TUI_ENTRY_ACTION_MODIFYING_NO_BLANK("IPL Settings", ipl_settings_cb, cfg, false, &menu_entries[6]),
-		[6] = TUI_ENTRY_TEXT("", &menu_entries[7]),
+		[6] = TUI_ENTRY_ACTION_MODIFYING_NO_BLANK("BL  Update", bl_update_cb, NULL, command_pending, &menu_entries[7]),
+		// [6] = TUI_ENTRY_TEXT("", &menu_entries[7]),
 		[7] = TUI_ENTRY_BACK(NULL)
 	};
 
