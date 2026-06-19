@@ -17,3 +17,8 @@
 Hold VOL+ while booting to open the sdloader menu, hold VOL+ and VOL- while booting to boot Stock.
 The button combination to boot stock can be disabled in the menu.
 The payload is loaded from payload.bin in the root directory of the FAT32 partition on the selected boot storage.
+
+
+
+NOTE: To support loading payloads bigger than 64kB, a part of the framebuffer is (ab)used to sotre the payload.
+When loading large payloads, the display might appear corrupted for a moment.
